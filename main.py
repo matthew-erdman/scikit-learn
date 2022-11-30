@@ -6,29 +6,58 @@ import pandas as pd
 import time
 
 
-def testLogistic(xMinMax, y):
+def testLogistic(xMinMax, y, maxIterations):
     # test multiple runs with random test/train splits to average accuracy and times
     allAccuracy = []
     allTime = []
-    for i in range(20):
+    for i in range(100):
         # reserve 20% of data for testing, split 80% for training
         trainX, testX, trainY, testY = train_test_split(xMinMax, y, test_size=0.2, shuffle=True)
 
         # train and time logistic regression model
         startTime = time.time()
-        logistic = LogisticRegression(max_iter=1000).fit(trainX, trainY)
+        model = LogisticRegression(max_iter=maxIterations).fit(trainX, trainY)
         endTime = time.time()
 
         # score logistic regression model
-        logisticPrediction = logistic.predict(testX)
-        accuracy = accuracy_score(testY, logisticPrediction)
+        prediction = model.predict(testX)
+        accuracy = accuracy_score(testY, prediction)
 
         # record and print logistic regression performance
         allAccuracy.append(accuracy * 100)
         allTime.append(float(endTime - startTime))
-        # print(f"Logistic Regression Trial {i + 1} \n---------------------")
-        # print(f"{allAccuracy[-1]:.2f}% Accurate")
-        # print(f"{allTime[-1]:.3f} Seconds")
+        print("---------------------")
+        print(f"Logistic Regression Trial {i + 1}")
+        print(f"Accuracy: {allAccuracy[-1]:.2f}%")
+        print(f"Seconds: {allTime[-1]:.3f}")
+
+    return allAccuracy, allTime
+
+
+def testRidge(xMinMax, y, maxIterations):
+    # test multiple runs with random test/train splits to average accuracy and times
+    allAccuracy = []
+    allTime = []
+    for i in range(100):
+        # reserve 20% of data for testing, split 80% for training
+        trainX, testX, trainY, testY = train_test_split(xMinMax, y, test_size=0.2, shuffle=True)
+
+        # train and time ridge classifier
+        startTime = time.time()
+        model = RidgeClassifier(max_iter=maxIterations).fit(trainX, trainY)
+        endTime = time.time()
+
+        # score ridge classifier
+        prediction = model.predict(testX)
+        accuracy = accuracy_score(testY, prediction)
+
+        # record and print ridge classifier performance
+        allAccuracy.append(accuracy * 100)
+        allTime.append(float(endTime - startTime))
+        print("---------------------")
+        print(f"Ridge Classifier Trial {i + 1}")
+        print(f"Accuracy: {allAccuracy[-1]:.2f}%")
+        print(f"Seconds: {allTime[-1]:.3f}")
 
     return allAccuracy, allTime
 
@@ -45,6 +74,10 @@ def main():
                          "averageUniqueCommitMessageCountByWeek", "averageCommitCountByStudent", "averageUniqueCommitMessageCountByStudent",
                          "issueCount", "onTimeIssueCount", "lateIssueCount", "SE Process grade"]
 
+    # set max iteration counts
+    logisticIterations = 1000
+    ridgeIterations = 1000
+
     processData = pd.read_csv("data/setapProcessT9.csv", comment='#')   # read in T9 data from milestones 1-5
     processData = processData.reindex(columns=allowedAttributes)        # drop extra attributes using whitelist
     x = processData[processData.columns[:-1]]                           # extract team process data, exclude final grade
@@ -52,13 +85,26 @@ def main():
     xMinMax = preprocessing.MinMaxScaler().fit_transform(x)             # scale and transform x using minmax
 
     # test logistic regression model
-    logisticAccuracy, logisticTime = testLogistic(xMinMax, y)
+    logisticAccuracy, logisticTime = testLogistic(xMinMax, y, logisticIterations)
     logisticAverageAccuracy = sum(logisticAccuracy) / len(logisticAccuracy)
-    logisticAverageTime = sum(logisticTime) / len(logisticTime)
+    logisticAverageTime = (sum(logisticTime) / len(logisticTime)) * 1000
 
-    print(f"Logistic Regression {i + 1} Trial Total \n---------------------")
-    print(f"{logisticAverageAccuracy:.2f}% Accurate")
-    print(f"{logisticAverageTime:.3f} Seconds")
+    # test ridge classifier
+    ridgeAccuracy, ridgeTime = testRidge(xMinMax, y, ridgeIterations)
+    ridgeAverageAccuracy = sum(ridgeAccuracy) / len(ridgeAccuracy)
+    ridgeAverageTime = (sum(ridgeTime) / len(ridgeTime)) * 1000
+
+    # print averages
+    print("\n---------------------------------\n\t\t\tAVERAGES\n---------------------------------")
+    print(f"\nLogistic Regression \n---------------------")
+    print(f"{logisticAverageAccuracy:.2f}% predictive accuracy")
+    print(f"{logisticAverageTime:.3f} ms to train")
+    print(f"{logisticIterations} max iterations")
+
+    print(f"\nRidge Classifier \n---------------------")
+    print(f"{ridgeAverageAccuracy:.2f}% predictive accuracy")
+    print(f"{ridgeAverageTime:.3f} ms to train")
+    print(f"{ridgeIterations} max iterations")
 
     # with open("processData.html", "w") as out:
     #     out.write(processData.to_html())
