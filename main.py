@@ -1,12 +1,14 @@
 from sklearn.linear_model import LogisticRegression, RidgeClassifier, SGDClassifier, Perceptron
 from sklearn.svm import SVC, LinearSVC
 from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, ConfusionMatrixDisplay
 from sklearn.preprocessing import MinMaxScaler
 
+import matplotlib.pyplot as plt
 import pandas as pd
 from time import time
 from statistics import mean
+
 
 def readProcessData(filename):
     # attribute whitelist, discards NaN containing columns and some computed variables (standard deviation, other averages, etc.)
@@ -54,8 +56,9 @@ def testModel(classifier, parameters, xMinMax, y):
     # test multiple runs with random test/train splits to average accuracy and times
     allAccuracy = []
     allTime = []
+    allPredictions = [[], []]
     for i in range(10):
-        # reserve 20% of data for testing, split 80% for training
+        # reserve 30% of data for testing, split 70% for training
         trainX, testX, trainY, testY = train_test_split(xMinMax, y, test_size=0.3, shuffle=True)
 
         # train and time given model
@@ -70,12 +73,14 @@ def testModel(classifier, parameters, xMinMax, y):
         # calculate and print performance
         allAccuracy.append(accuracy * 100)
         allTime.append(float(endTime - startTime))
+        allPredictions[0] += list(testY)
+        allPredictions[1] += list(prediction)
         print("---------------------")
         print(f"{model} Trial {i + 1}")
         print(f"Accuracy: {allAccuracy[-1]:.2f}%")
         print(f"Seconds: {allTime[-1]:.3f}")
 
-    return allAccuracy, allTime
+    return allAccuracy, allTime, allPredictions
 
 
 def main():
@@ -90,7 +95,7 @@ def main():
     processData = readProcessData("data/setapProcessT9.csv")    # read in T9 data from milestones 1-5 as a dataframe
     x = processData[processData.columns[:-1]]                   # extract team process data, exclude final grade
     y = processData[processData.columns[-1]]                    # extract team process grade, ground truth
-    xMinMax = MinMaxScaler().fit_transform(x)                  # scale and transform process data using minmax
+    xMinMax = MinMaxScaler().fit_transform(x)                   # scale and transform process data using minmax
 
     # test and score models
     startTime = time()
@@ -137,11 +142,15 @@ def main():
     print(f"Dataset of {processData.shape[0]} records by {processData.shape[1]} variables")
     print(f"Tested {len(allModelPerformance)} classification methods with {len(allModelPerformance[0][1])} random splits each")
     print(f"Total time to train and test all models: {(endTime - startTime) * 1000:.1f} ms")
-    print("\nPress enter to start stepping through the classifiers (ranked most accurate on average to least accurate)")
+    input("\nPress enter to start stepping through the classifiers (ranked most accurate on average to least accurate)")
     for i in range(len(allModelPerformance)):
-        input("...")
         print(f"\n{i + 1} of {len(allModelPerformance)}")
         printModelSummary(allModelPerformance[i])
+
+        # show confusion matrix based on total predictions of all test models
+        ConfusionMatrixDisplay.from_predictions(allModelPerformance[i][3][0], allModelPerformance[i][3][1], colorbar=False)
+        plt.title(f"{allModelPerformance[i][0]}")
+        plt.show()
 
 
 
