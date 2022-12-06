@@ -1,13 +1,13 @@
 from sklearn.linear_model import LogisticRegression, RidgeClassifier, SGDClassifier, Perceptron
-from sklearn.svm import SVC
-from sklearn.model_selection import train_test_split
+from sklearn.svm import SVC, LinearSVC
+from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import accuracy_score
-from sklearn import preprocessing
+from sklearn.preprocessing import MinMaxScaler
 import pandas as pd
-import time
+from time import time
 
 
-def testLogistic(xMinMax, y, maxIterations):
+def testModel(classifier, maxIterations, xMinMax, y, kernel=None):
     # test multiple runs with random test/train splits to average accuracy and times
     allAccuracy = []
     allTime = []
@@ -15,136 +15,49 @@ def testLogistic(xMinMax, y, maxIterations):
         # reserve 20% of data for testing, split 80% for training
         trainX, testX, trainY, testY = train_test_split(xMinMax, y, test_size=0.2, shuffle=True)
 
-        # train and time logistic regression model
-        startTime = time.time()
-        model = LogisticRegression(max_iter=maxIterations).fit(trainX, trainY)
-        endTime = time.time()
+        # train and time given model
+        if kernel:
+            startTime = time()
+            model = classifier(max_iter=maxIterations, kernel=kernel).fit(trainX, trainY)
+            endTime = time()
+        else:
+            startTime = time()
+            model = classifier(max_iter=maxIterations).fit(trainX, trainY)
+            endTime = time()
 
-        # score logistic regression model
+        # measure model performance
         prediction = model.predict(testX)
         accuracy = accuracy_score(testY, prediction)
 
-        # record and print logistic regression performance
+        # calculate and print performance
         allAccuracy.append(accuracy * 100)
         allTime.append(float(endTime - startTime))
         print("---------------------")
-        print(f"Logistic Regression Trial {i + 1}")
+        print(f"{model} Trial {i + 1}")
         print(f"Accuracy: {allAccuracy[-1]:.2f}%")
         print(f"Seconds: {allTime[-1]:.3f}")
 
     return allAccuracy, allTime
 
 
-def testRidge(xMinMax, y, maxIterations):
-    # test multiple runs with random test/train splits to average accuracy and times
-    allAccuracy = []
-    allTime = []
-    for i in range(100):
-        # reserve 20% of data for testing, split 80% for training
-        trainX, testX, trainY, testY = train_test_split(xMinMax, y, test_size=0.2, shuffle=True)
+def printModelSummary(model):
+    averageAccuracy = sum(model[1]) / len(model[1])
+    averageTime = (sum(model[2]) / len(model[2])) * 1000
 
-        # train and time ridge classifier
-        startTime = time.time()
-        model = RidgeClassifier(max_iter=maxIterations).fit(trainX, trainY)
-        endTime = time.time()
-
-        # score ridge classifier
-        prediction = model.predict(testX)
-        accuracy = accuracy_score(testY, prediction)
-
-        # record and print ridge classifier performance
-        allAccuracy.append(accuracy * 100)
-        allTime.append(float(endTime - startTime))
-        print("---------------------")
-        print(f"Ridge Classifier Trial {i + 1}")
-        print(f"Accuracy: {allAccuracy[-1]:.2f}%")
-        print(f"Seconds: {allTime[-1]:.3f}")
-
-    return allAccuracy, allTime
+    print(f"\n{model[0]}\n---------------------")
+    print(f"{averageAccuracy:.1f}% average predictive accuracy (range: {min(model[1]):.2f}% to {max(model[1]):.2f}%)")
+    print(f"{averageTime:.3f} ms average to train")
 
 
-def testSGD(xMinMax, y, maxIterations):
-    # test multiple runs with random test/train splits to average accuracy and times
-    allAccuracy = []
-    allTime = []
-    for i in range(100):
-        # reserve 20% of data for testing, split 80% for training
-        trainX, testX, trainY, testY = train_test_split(xMinMax, y, test_size=0.2, shuffle=True)
-
-        # train and time sgd classifier
-        startTime = time.time()
-        model = SGDClassifier(max_iter=maxIterations).fit(trainX, trainY)
-        endTime = time.time()
-
-        # score sgd classifier
-        prediction = model.predict(testX)
-        accuracy = accuracy_score(testY, prediction)
-
-        # record and print sgd classifier performance
-        allAccuracy.append(accuracy * 100)
-        allTime.append(float(endTime - startTime))
-        print("---------------------")
-        print(f"SGD Classifier Trial {i + 1}")
-        print(f"Accuracy: {allAccuracy[-1]:.2f}%")
-        print(f"Seconds: {allTime[-1]:.3f}")
-
-    return allAccuracy, allTime
-
-
-def testPerceptron(xMinMax, y, maxIterations):
-    # test multiple runs with random test/train splits to average accuracy and times
-    allAccuracy = []
-    allTime = []
-    for i in range(100):
-        # reserve 20% of data for testing, split 80% for training
-        trainX, testX, trainY, testY = train_test_split(xMinMax, y, test_size=0.2, shuffle=True)
-
-        # train and time perceptron
-        startTime = time.time()
-        model = Perceptron(max_iter=maxIterations).fit(trainX, trainY)
-        endTime = time.time()
-
-        # score perceptron
-        prediction = model.predict(testX)
-        accuracy = accuracy_score(testY, prediction)
-
-        # record and print perceptron performance
-        allAccuracy.append(accuracy * 100)
-        allTime.append(float(endTime - startTime))
-        print("---------------------")
-        print(f"Perceptron Trial {i + 1}")
-        print(f"Accuracy: {allAccuracy[-1]:.2f}%")
-        print(f"Seconds: {allTime[-1]:.3f}")
-
-    return allAccuracy, allTime
-
-
-def testSVC(xMinMax, y, maxIterations, kernel):
-    # test multiple runs with random test/train splits to average accuracy and times
-    allAccuracy = []
-    allTime = []
-    for i in range(100):
-        # reserve 20% of data for testing, split 80% for training
-        trainX, testX, trainY, testY = train_test_split(xMinMax, y, test_size=0.2, shuffle=True)
-
-        # train and time svc
-        startTime = time.time()
-        model = SVC(max_iter=maxIterations, kernel=kernel).fit(trainX, trainY)
-        endTime = time.time()
-
-        # score svc
-        prediction = model.predict(testX)
-        accuracy = accuracy_score(testY, prediction)
-
-        # record and print svc performance
-        allAccuracy.append(accuracy * 100)
-        allTime.append(float(endTime - startTime))
-        print("---------------------")
-        print(f"SVC {kernel} Trial {i + 1}")
-        print(f"Accuracy: {allAccuracy[-1]:.2f}%")
-        print(f"Seconds: {allTime[-1]:.3f}")
-
-    return allAccuracy, allTime
+# def findBestSVC(xMinMax, y, maxIterations, kernel):
+    # # search hyper-parameter space for best cross validation score
+    # parameters = [
+    #     {"kernel": ["linear"], "C": [.001, .01, .1, 1, 10, 100, 1000]},
+    #     {"kernel": ["poly"], "C": [.001, .01, .1, 1, 10, 100, 1000], "degree": [2, 3, 4, 5]},
+    #     {"kernel": ["rbf"], "C": [.001, .01, .1, 1, 10, 100, 1000], "gamma": [[.01, .1, 1, 10, 100]]},
+    # ]
+    # classifier = GridSearchCV(SVC(), parameters)
+    # classifier.fit(xMinMax, y)
 
 
 def main():
@@ -164,74 +77,30 @@ def main():
     ridgeIterations = 1000
     SGDIterations = 1000
     perceptronIterations = 1000
-    SVCIterations = 10000 # 1000 cap is occasionally hit
+    SVCIterations = 10000  # 1000 cap can be occasionally hit
+    linearSVCIterations = 1000
 
     processData = pd.read_csv("data/setapProcessT9.csv", comment='#')   # read in T9 data from milestones 1-5
     processData = processData.reindex(columns=allowedAttributes)        # drop extra attributes using whitelist
     x = processData[processData.columns[:-1]]                           # extract team process data, exclude final grade
     y = processData[processData.columns[-1]]                            # extract team process grade, ground truth
-    xMinMax = preprocessing.MinMaxScaler().fit_transform(x)             # scale and transform x using minmax
+    xMinMax = MinMaxScaler().fit_transform(x)                           # scale and transform x using minmax
 
-    # test logistic regression model
-    logisticAccuracy, logisticTime = testLogistic(xMinMax, y, logisticIterations)
-    logisticAverageAccuracy = sum(logisticAccuracy) / len(logisticAccuracy)
-    logisticAverageTime = (sum(logisticTime) / len(logisticTime)) * 1000
+    # test and score models
+    allModelPerformance = []
+    allModelPerformance.append(("Logistic Regression", *testModel(LogisticRegression, logisticIterations, xMinMax, y)))
+    allModelPerformance.append(("Ridge Classifier", *testModel(RidgeClassifier, ridgeIterations, xMinMax, y)))
+    allModelPerformance.append(("SGD Classifier", *testModel(SGDClassifier, SGDIterations, xMinMax, y)))
+    allModelPerformance.append(("Perceptron", *testModel(Perceptron, perceptronIterations, xMinMax, y)))
+    allModelPerformance.append(("Linear SVC", *testModel(LinearSVC, linearSVCIterations, xMinMax, y)))
+    for kernel in ["linear", "rbf", "poly"]:
+        allModelPerformance.append((f"SVC: {kernel} kernel", *testModel(SVC, SVCIterations, xMinMax, y, kernel=kernel)))
 
-    # test ridge classifier
-    ridgeAccuracy, ridgeTime = testRidge(xMinMax, y, ridgeIterations)
-    ridgeAverageAccuracy = sum(ridgeAccuracy) / len(ridgeAccuracy)
-    ridgeAverageTime = (sum(ridgeTime) / len(ridgeTime)) * 1000
+    # print summary
+    print("\n---------------------------------\n\t\t\tSUMMARY\n---------------------------------")
+    for model in allModelPerformance:
+        printModelSummary(model)
 
-    # test sgd classifier
-    SGDAccuracy, SGDTime = testSGD(xMinMax, y, SGDIterations)
-    SGDAverageAccuracy = sum(SGDAccuracy) / len(SGDAccuracy)
-    SGDAverageTime = (sum(SGDTime) / len(SGDTime)) * 1000
-
-    # test perceptron
-    perceptronAccuracy, perceptronTime = testPerceptron(xMinMax, y, perceptronIterations)
-    perceptronAverageAccuracy = sum(perceptronAccuracy) / len(perceptronAccuracy)
-    perceptronAverageTime = (sum(perceptronTime) / len(perceptronTime)) * 1000
-
-    # test svc with each of 4 kernels
-    SVCPerformance = []
-    kernels = ["linear", "poly", "rbf", "sigmoid"]
-    for kernel in kernels:
-        SVCAccuracy, SVCTime = testSVC(xMinMax, y, SVCIterations, kernel)
-        SVCAverageAccuracy = sum(SVCAccuracy) / len(SVCAccuracy)
-        SVCAverageTime = (sum(SVCTime) / len(SVCTime)) * 1000
-        SVCPerformance.append((kernel, SVCAverageAccuracy, SVCAverageTime))
-
-
-    # print averages
-    print("\n---------------------------------\n\t\t\tAVERAGES\n---------------------------------")
-    print(f"\nLogistic Regression\n---------------------")
-    print(f"{logisticAverageAccuracy:.1f}% predictive accuracy")
-    print(f"{logisticAverageTime:.3f} ms to train")
-    print(f"{logisticIterations} max iterations")
-
-    print(f"\nRidge Classifier\n---------------------")
-    print(f"{ridgeAverageAccuracy:.1f}% predictive accuracy")
-    print(f"{ridgeAverageTime:.3f} ms to train")
-    print(f"{ridgeIterations} max iterations")
-
-    print(f"\nSGD Classifier\n---------------------")
-    print(f"{SGDAverageAccuracy:.1f}% predictive accuracy")
-    print(f"{SGDAverageTime:.3f} ms to train")
-    print(f"{SGDIterations} max iterations")
-
-    print(f"\nPerceptron\n---------------------")
-    print(f"{perceptronAverageAccuracy:.2f}% predictive accuracy")
-    print(f"{perceptronAverageTime:.3f} ms to train")
-    print(f"{perceptronIterations} max iterations")
-
-    for trial in SVCPerformance:
-        print(f"\nSVC: {trial[0]} kernel\n---------------------")
-        print(f"{trial[1]:.2f}% predictive accuracy")
-        print(f"{trial[2]:.3f} ms to train")
-        print(f"{SVCIterations} max iterations")
-
-    # with open("processData.html", "w") as out:
-    #     out.write(processData.to_html())
 
 
 main()
