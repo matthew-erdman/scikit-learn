@@ -7,7 +7,7 @@ import pandas as pd
 from time import time
 
 
-def testModel(classifier, maxIterations, xMinMax, y, kernel=None):
+def testModel(classifier, parameters, xMinMax, y):
     # test multiple runs with random test/train splits to average accuracy and times
     allAccuracy = []
     allTime = []
@@ -16,14 +16,9 @@ def testModel(classifier, maxIterations, xMinMax, y, kernel=None):
         trainX, testX, trainY, testY = train_test_split(xMinMax, y, test_size=0.2, shuffle=True)
 
         # train and time given model
-        if kernel:
-            startTime = time()
-            model = classifier(max_iter=maxIterations, kernel=kernel).fit(trainX, trainY)
-            endTime = time()
-        else:
-            startTime = time()
-            model = classifier(max_iter=maxIterations).fit(trainX, trainY)
-            endTime = time()
+        startTime = time()
+        model = classifier(**parameters).fit(trainX, trainY)
+        endTime = time()
 
         # measure model performance
         prediction = model.predict(testX)
@@ -46,18 +41,7 @@ def printModelSummary(model):
 
     print(f"\n{model[0]}\n---------------------")
     print(f"{averageAccuracy:.1f}% average predictive accuracy (range: {min(model[1]):.2f}% to {max(model[1]):.2f}%)")
-    print(f"{averageTime:.3f} ms average to train")
-
-
-# def findBestSVC(xMinMax, y, maxIterations, kernel):
-    # # search hyper-parameter space for best cross validation score
-    # parameters = [
-    #     {"kernel": ["linear"], "C": [.001, .01, .1, 1, 10, 100, 1000]},
-    #     {"kernel": ["poly"], "C": [.001, .01, .1, 1, 10, 100, 1000], "degree": [2, 3, 4, 5]},
-    #     {"kernel": ["rbf"], "C": [.001, .01, .1, 1, 10, 100, 1000], "gamma": [[.01, .1, 1, 10, 100]]},
-    # ]
-    # classifier = GridSearchCV(SVC(), parameters)
-    # classifier.fit(xMinMax, y)
+    print(f"{averageTime:.3f} ms average training time")
 
 
 def main():
@@ -73,12 +57,12 @@ def main():
                          "issueCount", "onTimeIssueCount", "lateIssueCount", "SE Process grade"]
 
     # set max iteration counts
-    logisticIterations = 1000
-    ridgeIterations = 1000
-    SGDIterations = 1000
-    perceptronIterations = 1000
-    SVCIterations = 10000  # 1000 cap can be occasionally hit
-    linearSVCIterations = 1000
+    logisticParameters = {"max_iter": 1000}
+    ridgeParameters = {"max_iter": 1000}
+    SGDParameters = {"max_iter": 1000}
+    perceptronParameters = {"max_iter": 1000}
+    SVCParameters = {"max_iter": 2000}  # 1000 cap can be occasionally hit
+    linearSVCParameters = {"max_iter": 1000}
 
     processData = pd.read_csv("data/setapProcessT9.csv", comment='#')   # read in T9 data from milestones 1-5
     processData = processData.reindex(columns=allowedAttributes)        # drop extra attributes using whitelist
@@ -88,13 +72,26 @@ def main():
 
     # test and score models
     allModelPerformance = []
-    allModelPerformance.append(("Logistic Regression", *testModel(LogisticRegression, logisticIterations, xMinMax, y)))
-    allModelPerformance.append(("Ridge Classifier", *testModel(RidgeClassifier, ridgeIterations, xMinMax, y)))
-    allModelPerformance.append(("SGD Classifier", *testModel(SGDClassifier, SGDIterations, xMinMax, y)))
-    allModelPerformance.append(("Perceptron", *testModel(Perceptron, perceptronIterations, xMinMax, y)))
-    allModelPerformance.append(("Linear SVC", *testModel(LinearSVC, linearSVCIterations, xMinMax, y)))
+    allModelPerformance.append(("Logistic Regression", *testModel(LogisticRegression, logisticParameters, xMinMax, y)))
+    allModelPerformance.append(("Ridge Classifier", *testModel(RidgeClassifier, ridgeParameters, xMinMax, y)))
+    allModelPerformance.append(("SGD Classifier", *testModel(SGDClassifier, SGDParameters, xMinMax, y)))
+    allModelPerformance.append(("Perceptron", *testModel(Perceptron, perceptronParameters, xMinMax, y)))
+    allModelPerformance.append(("Linear SVC", *testModel(LinearSVC, linearSVCParameters, xMinMax, y)))
     for kernel in ["linear", "rbf", "poly"]:
-        allModelPerformance.append((f"SVC: {kernel} kernel", *testModel(SVC, SVCIterations, xMinMax, y, kernel=kernel)))
+        allModelPerformance.append((f"SVC: {kernel} kernel", *testModel(SVC, SVCParameters, xMinMax, y)))
+
+    # search SVC hyper-parameter space for highest accuracy kernel and parameters
+    parameterSpace = [
+        {"kernel": ["linear"], "C": [.001, .01, .1, 1, 10, 100, 1000]},
+        {"kernel": ["poly"], "C": [.001, .01, .1, 1, 10, 100, 1000], "degree": [2, 3, 4, 5]},
+        {"kernel": ["rbf"], "C": [.001, .01, .1, 1, 10, 100, 1000], "gamma": [.01, .1, 1, 10, 100]}
+    ]
+    gridSearch = GridSearchCV(SVC(), parameterSpace)
+    gridResults = gridSearch.fit(xMinMax, y)
+    allModelPerformance.append((f"SVC & Grid Search: {gridResults.best_params_}", *testModel(SVC, gridResults.best_params_, xMinMax, y)))
+
+    # sort models by average accuracy descending
+    allModelPerformance = sorted(allModelPerformance, key=lambda x: sum(x[1])/len(x[1]), reverse=True)
 
     # print summary
     print("\n---------------------------------\n\t\t\tSUMMARY\n---------------------------------")
